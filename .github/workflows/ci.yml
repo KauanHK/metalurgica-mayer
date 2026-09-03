@@ -1,15 +1,11 @@
 name: CI
 
-# `main` é a branch estável e `dev` a de integração da equipe: o que quebrar
-# aqui não chega em nenhuma das duas sem alguém ver.
 on:
   push:
     branches: [main, dev]
   pull_request:
     branches: [main, dev]
 
-# Um push novo na mesma branch cancela a execução anterior — sem isso a fila
-# enche de builds já obsoletos nos dias de commits em sequência.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -31,8 +27,6 @@ jobs:
           POSTGRES_PASSWORD: metalurgica
         ports:
           - 5432:5432
-        # O container sobe antes do Postgres aceitar conexões; sem o healthcheck
-        # o primeiro passo que fala com o banco falha de forma intermitente.
         options: >-
           --health-cmd "pg_isready -U metalurgica -d metalurgica_mayer_test"
           --health-interval 5s
@@ -40,8 +34,6 @@ jobs:
           --health-retries 10
 
     env:
-      # `Settings` usa extra="forbid" e exige JWT_SECRET; as demais têm default,
-      # mas ficam explícitas para o CI não depender deles em silêncio.
       ENVIRONMENT: local
       LOG_LEVEL: INFO
       CORS_ORIGINS: http://localhost:3000
@@ -50,8 +42,6 @@ jobs:
       POSTGRES_DB: metalurgica_mayer_test
       POSTGRES_USER: metalurgica
       POSTGRES_PASSWORD: metalurgica
-      # Valor descartável, válido só dentro desta execução. O segredo real de
-      # cada ambiente nunca entra no repositório.
       JWT_SECRET: chave-de-ci-sem-valor-em-producao
       JWT_ALGORITHM: HS256
       ACCESS_TOKEN_EXPIRES_MIN: 30
@@ -73,7 +63,6 @@ jobs:
           cache-dependency-glob: backend/uv.lock
 
       - name: Instalar dependências
-        # A versão do Python vem de backend/.python-version; o uv baixa se faltar.
         run: uv sync --locked --all-groups
 
       - name: Lint (ruff)
@@ -99,11 +88,6 @@ jobs:
       - name: Baixar o código
         uses: actions/checkout@v4
 
-      # O guard vive nos passos, e não no `if` do job: `hashFiles` resolve
-      # contra o workspace, que antes do checkout está vazio — no job inteiro a
-      # expressão daria sempre '' e o frontend nunca rodaria. Pelo mesmo motivo
-      # `working-directory: frontend` fica passo a passo: enquanto a pasta não
-      # existir, um default de job derrubaria até o aviso abaixo.
       - name: Avisar quando ainda não há lockfile
         if: hashFiles('frontend/package-lock.json') == ''
         run: echo "frontend/package-lock.json ainda não existe; nada a verificar."
