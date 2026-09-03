@@ -1,0 +1,132 @@
+name: CI
+
+# `main` é a branch estável e `dev` a de integração da equipe: o que quebrar
+# aqui não chega em nenhuma das duas sem alguém ver.
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+# Um push novo na mesma branch cancela a execução anterior — sem isso a fila
+# enche de builds já obsoletos nos dias de commits em sequência.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (lint, tipos, migrations e testes)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: metalurgica_mayer_test
+          POSTGRES_USER: metalurgica
+          POSTGRES_PASSWORD: metalurgica
+        ports:
+          - 5432:5432
+        # O container sobe antes do Postgres aceitar conexões; sem o healthcheck
+        # o primeiro passo que fala com o banco falha de forma intermitente.
+        options: >-
+          --health-cmd "pg_isready -U metalurgica -d metalurgica_mayer_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # `Settings` usa extra="forbid" e exige JWT_SECRET; as demais têm default,
+      # mas ficam explícitas para o CI não depender deles em silêncio.
+      ENVIRONMENT: local
+      LOG_LEVEL: INFO
+      CORS_ORIGINS: http://localhost:3000
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: metalurgica_mayer_test
+      POSTGRES_USER: metalurgica
+      POSTGRES_PASSWORD: metalurgica
+      # Valor descartável, válido só dentro desta execução. O segredo real de
+      # cada ambiente nunca entra no repositório.
+      JWT_SECRET: chave-de-ci-sem-valor-em-producao
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRES_MIN: 30
+      REFRESH_TOKEN_EXPIRES_DAYS: 7
+      TEST_DATABASE_URL: postgresql+asyncpg://metalurgica:metalurgica@localhost:5432/metalurgica_mayer_test
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v4
+
+      - name: Instalar o uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Instalar dependências
+        # A versão do Python vem de backend/.python-version; o uv baixa se faltar.
+        run: uv sync --locked --all-groups
+
+      - name: Lint (ruff)
+        run: uv run ruff check .
+
+      - name: Formatação (ruff)
+        run: uv run ruff format --check .
+
+      - name: Tipos (mypy)
+        run: uv run mypy .
+
+      - name: Aplicar as migrations
+        run: uv run alembic upgrade head
+
+      - name: Testes (pytest)
+        run: uv run pytest -v
+
+  frontend:
+    name: Frontend (lint e build)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v4
+
+      # O guard vive nos passos, e não no `if` do job: `hashFiles` resolve
+      # contra o workspace, que antes do checkout está vazio — no job inteiro a
+      # expressão daria sempre '' e o frontend nunca rodaria. Pelo mesmo motivo
+      # `working-directory: frontend` fica passo a passo: enquanto a pasta não
+      # existir, um default de job derrubaria até o aviso abaixo.
+      - name: Avisar quando ainda não há lockfile
+        if: hashFiles('frontend/package-lock.json') == ''
+        run: echo "frontend/package-lock.json ainda não existe; nada a verificar."
+
+      - name: Instalar o Node
+        if: hashFiles('frontend/package-lock.json') != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: "26"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependências
+        if: hashFiles('frontend/package-lock.json') != ''
+        working-directory: frontend
+        run: npm ci
+
+      - name: Lint
+        if: hashFiles('frontend/package-lock.json') != ''
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Build
+        if: hashFiles('frontend/package-lock.json') != ''
+        working-directory: frontend
+        run: npm run build
