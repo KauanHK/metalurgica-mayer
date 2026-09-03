@@ -1,0 +1,117 @@
+# Stack de desenvolvimento: um `docker compose up` sobe banco, API e front para
+# qualquer integrante da equipe, sem instalar Python nem Node na máquina.
+#
+# O critério de saída da Sprint 1 é exatamente isto — todos rodando a aplicação
+# e o banco localmente. A stack de produção (com proxy reverso e imagens
+# publicadas) é entrega da Sprint 7.
+name: metalurgica-mayer
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: metalurgica-mayer-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      # Publicada para dar acesso a DBeaver/psql da máquina. Em produção não se
+      # publica a porta do banco.
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # O default de 10s pode não bastar para o checkpoint final do Postgres; um
+    # SIGKILL no meio disso deixa o cluster sujo e força recovery no próximo boot.
+    stop_grace_period: 1m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [backend]
+    logging: *default-logging
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: metalurgica-mayer-api:dev
+    container_name: metalurgica-mayer-api
+    restart: unless-stopped
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT}
+      LOG_LEVEL: ${LOG_LEVEL}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ALGORITHM: ${JWT_ALGORITHM}
+      ACCESS_TOKEN_EXPIRES_MIN: ${ACCESS_TOKEN_EXPIRES_MIN}
+      REFRESH_TOKEN_EXPIRES_DAYS: ${REFRESH_TOKEN_EXPIRES_DAYS}
+    ports:
+      - "8000:8000"
+    volumes:
+      # Bind mount do código para o --reload valer: editar no host reinicia o
+      # servidor no container.
+      - ./backend:/app
+      # Volume anônimo por cima do venv: o do host (Linux, do `uv sync`) não vale
+      # dentro da imagem, e sem esta linha o bind mount acima o esconderia.
+      - /app/.venv
+    depends_on:
+      db:
+        condition: service_healthy
+    # As migrations rodam na subida: ninguém precisa lembrar de aplicá-las, e o
+    # banco nunca fica atrás do código que está rodando.
+    command: >
+      sh -c "alembic upgrade head &&
+             exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/api/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    networks: [backend]
+    logging: *default-logging
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    image: metalurgica-mayer-web:dev
+    container_name: metalurgica-mayer-web
+    restart: unless-stopped
+    environment:
+      # O navegador do usuário é quem chama a API, então a URL é a do host — não
+      # `http://api:8000`, que só existe dentro da rede do Compose.
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
+      WATCHPACK_POLLING: "true"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      # Mesmo motivo do .venv: node_modules é instalado na imagem (Linux) e não
+      # pode ser encoberto pelo diretório do host.
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - api
+    networks: [backend]
+    logging: *default-logging
+
+networks:
+  backend:
+
+volumes:
+  pgdata:
