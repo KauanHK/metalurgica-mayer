@@ -1,0 +1,13 @@
+Migrations do banco, geradas e aplicadas com Alembic.
+
+    uv run alembic upgrade head                       # aplica tudo o que falta
+    uv run alembic revision --autogenerate -m "..."   # gera a partir dos models
+    uv run alembic downgrade -1                       # desfaz a última
+    uv run alembic history                            # histórico
+    uv run alembic current                            # em que revisão o banco está
+
+Sempre LEIA a migration gerada antes de commitar: o autogenerate não enxerga
+renomeação (vê um DROP e um CREATE, e assim apaga os dados da coluna), nem
+CHECK constraints escritas à mão, nem mudança de dados. Ao criar um módulo novo,
+importe os models dele em `env.py` — sem isso o Alembic conclui que a tabela
+sobra no banco e gera um DROP.

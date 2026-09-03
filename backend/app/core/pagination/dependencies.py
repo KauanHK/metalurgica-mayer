@@ -1,0 +1,20 @@
+from typing import Annotated
+
+from fastapi import Depends
+
+from app.core.pagination.params import PageParams
+from app.core.pagination.schemas import PaginationParams
+
+
+def get_pagination_params(
+    query_params: Annotated[PaginationParams, Depends()],
+) -> PageParams:
+    """Converte os query params de paginação no `PageParams` do domínio."""
+
+    return PageParams(
+        page=query_params.page,
+        page_size=query_params.page_size,
+    )
+
+
+PageParamsDep = Annotated[PageParams, Depends(get_pagination_params)]
