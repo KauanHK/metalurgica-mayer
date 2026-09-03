@@ -13,11 +13,7 @@ from alembic import context
 from sqlalchemy import Connection, pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-import app.modules.assets.adapters.db.models
 import app.modules.clients.adapters.db.models
-import app.modules.inventory.adapters.db.models
-import app.modules.quotes.adapters.db.models
-import app.modules.service_requests.adapters.db.models
 import app.modules.users.adapters.db.models  # noqa: F401
 from app.core.db.base import Base
 from app.core.settings import settings
