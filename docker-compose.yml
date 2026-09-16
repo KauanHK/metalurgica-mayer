@@ -66,28 +66,6 @@ services:
     networks: [backend]
     logging: *default-logging
 
-  web:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      target: development
-    image: metalurgica-mayer-web:dev
-    container_name: metalurgica-mayer-web
-    restart: unless-stopped
-    environment:
-      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
-      WATCHPACK_POLLING: "true"
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - /app/.next
-    depends_on:
-      - api
-    networks: [backend]
-    logging: *default-logging
-
 networks:
   backend:
 
