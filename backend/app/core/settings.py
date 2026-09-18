@@ -42,8 +42,9 @@ class Settings(BaseSettings):
     POSTGRES_USER: str | None = None
     POSTGRES_PASSWORD: str | None = None
 
-    # Autenticação. A Sprint 1 já carrega estas chaves porque `core/security`
-    # existe desde a fundação; o módulo `auth` que as consome entra na Sprint 2.
+    # Autenticação. `core/security` monta e valida os tokens a partir destas
+    # chaves; quem os emite e os exige é o módulo `users` (login e
+    # `get_current_actor`).
     JWT_SECRET: str
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRES_MIN: int = 30

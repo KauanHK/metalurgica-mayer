@@ -1,0 +1,19 @@
+import uuid
+from typing import Protocol
+
+from app.modules.users.domain.entities import UpdateUser, User, UserCredentials
+
+
+class UsersRepositoryProtocol(Protocol):
+    """O que os use cases de usuários precisam do repositório.
+
+    `UsersRepository` o satisfaz estruturalmente, sem herdar: o contrato é o
+    que a aplicação usa, não o que o adaptador oferece.
+    """
+
+    async def get_by_id(self, id_: uuid.UUID) -> User: ...
+    async def get_by_id_or_none(self, id_: uuid.UUID) -> User | None: ...
+    async def get_credentials_by_id(self, id_: uuid.UUID) -> UserCredentials: ...
+    async def get_credentials_by_email(self, email: str) -> UserCredentials | None: ...
+    async def update(self, id_: uuid.UUID, update_command: UpdateUser) -> User: ...
+    async def set_password_hash(self, id_: uuid.UUID, password_hash: str) -> None: ...

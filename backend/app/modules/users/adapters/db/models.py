@@ -7,7 +7,7 @@ from app.core.db.types import CreatedAt, UpdatedAt, UuidPk
 
 
 class User(Base):
-    """Usuário do ERP (Sprint 2 liga o login; a tabela nasce aqui)."""
+    """Usuário do ERP."""
 
     __tablename__ = "users"
 

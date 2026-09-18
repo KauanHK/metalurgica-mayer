@@ -4,8 +4,9 @@ from datetime import datetime
 from typing import Any
 
 from app.core.actors.roles import UserRole
+from app.core.types import UNSET, BaseUpdateCommand, Unset
 
-__all__ = ["User", "UserRole"]
+__all__ = ["UpdateUser", "User", "UserCredentials", "UserRole"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,3 +38,29 @@ class User:
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
+
+
+@dataclass(frozen=True, slots=True)
+class UserCredentials:
+    """Usuário mais o hash da senha.
+
+    Existe separado de `User` porque só a autenticação e a troca de senha
+    precisam do hash — devolvê-lo junto da entidade normal arriscaria uma
+    serialização distraída vazá-lo numa resposta.
+    """
+
+    user: User
+    password_hash: str
+
+
+@dataclass(frozen=True, slots=True)
+class UpdateUser(BaseUpdateCommand):
+    """Campos do próprio usuário editáveis pela gestão de perfil. `UNSET` = não mexer.
+
+    E-mail, perfil (`role`) e status (`is_active`) não entram aqui: mudam pelo
+    cadastro administrado por um admin — que a Sprint 2 ainda não expõe —, não
+    pela autoedição do próprio usuário.
+    """
+
+    name: str | Unset = UNSET
+    phone: str | Unset | None = UNSET

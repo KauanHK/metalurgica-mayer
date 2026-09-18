@@ -1,16 +1,14 @@
-"""Rotas de clientes — o CRUD-piloto que valida a stack de ponta a ponta.
+"""Rotas de clientes — o CRUD-piloto que validou a stack de ponta a ponta.
 
-⚠️ **Sem autenticação nesta sprint.** O cronograma põe login e proteção de rotas
-na Sprint 2; a fundação (`app/core/security`, tabela `users`, seed do admin) já
-está pronta, e proteger este módulo será acrescentar
-`dependencies=[Depends(get_current_actor)]` ao `APIRouter` abaixo, uma linha,
-sem tocar em use case nenhum. Até lá a API não deve ser exposta fora da rede
-local.
+Protegido por `get_current_actor` (Sprint 2): toda rota deste router exige um
+token de acesso válido de um usuário ativo. Autorização por perfil (admin vs.
+operador) ainda não se aplica aqui — os dois perfis têm o mesmo acesso ao
+cadastro de clientes.
 """
 
 import uuid
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, status
 
 from app.core.pagination.dependencies import PageParamsDep
 from app.core.pagination.schemas import PaginatedResponse, build_paginated_response
@@ -32,8 +30,9 @@ from app.modules.clients.application.use_cases.clients_deleter import ClientsDel
 from app.modules.clients.application.use_cases.clients_paginator import ClientsPaginator
 from app.modules.clients.application.use_cases.clients_reader import ClientsReader
 from app.modules.clients.application.use_cases.clients_updater import ClientsUpdater
+from app.modules.users.adapters.http.dependencies import get_current_actor
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_actor)])
 
 
 @router.get("", response_model=PaginatedResponse[ClientRead], summary="Listar clientes")
