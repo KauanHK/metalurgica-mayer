@@ -32,6 +32,12 @@ from app.modules.clients.adapters.db.factories import (
     make_unit_of_work as make_clients_uow,
 )
 from app.modules.clients.adapters.db.unit_of_work import ClientsUnitOfWork
+from app.modules.service_requests.adapters.db.factories import (
+    make_unit_of_work as make_service_requests_uow,
+)
+from app.modules.service_requests.adapters.db.unit_of_work import (
+    ServiceRequestsUnitOfWork,
+)
 from app.modules.users.adapters.db.factories import make_unit_of_work as make_users_uow
 from app.modules.users.adapters.db.models import User as UserModel
 from app.modules.users.adapters.db.unit_of_work import UsersUnitOfWork
@@ -74,6 +80,9 @@ def _override_unit_of_work_factories(
 
     app.dependency_overrides[make_clients_uow] = lambda: ClientsUnitOfWork(
         session_factory=session_factory
+    )
+    app.dependency_overrides[make_service_requests_uow] = lambda: (
+        ServiceRequestsUnitOfWork(session_factory=session_factory)
     )
     app.dependency_overrides[make_users_uow] = lambda: UsersUnitOfWork(
         session_factory=session_factory

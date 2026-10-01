@@ -3,10 +3,11 @@ from datetime import date
 
 from sqlalchemy import Date, Enum, ForeignKey, Index, String, Text
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db.base import Base
 from app.core.db.types import CreatedAt, UpdatedAt, UuidPk
+from app.modules.clients.adapters.db.models import Client
 from app.modules.service_requests.domain.entities import (
     ServiceRequestOrigin,
     ServiceRequestStatus,
@@ -43,6 +44,11 @@ class ServiceRequest(Base):
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     created_at: Mapped[CreatedAt]
     updated_at: Mapped[UpdatedAt]
+
+    # Só leitura e carregado junto (JOIN): a API devolve o nome do cliente em
+    # toda solicitação, e um lazy load fora da sessão assíncrona não é opção —
+    # o `BaseRepository` converte o model em entidade depois do `await`.
+    client: Mapped[Client] = relationship(Client, lazy="joined", viewonly=True)
 
     __table_args__ = (
         # A ficha do cliente lista as solicitações dele da mais recente para a

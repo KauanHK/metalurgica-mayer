@@ -59,3 +59,25 @@ class ClientsRepository(BaseRepository[ClientModel, Client, ClientFilters]):
         )
         row = result.scalars().one_or_none()
         return self._to_entity(row) if row else None
+
+    async def get_by_email_or_none(self, email: str) -> Client | None:
+        """Busca pelo e-mail, sem diferenciar maiúsculas de minúsculas.
+
+        O e-mail não é único no cadastro (duas pessoas da mesma empresa podem
+        usar o mesmo contato), então pode haver mais de um cliente com ele. Para
+        a resposta ser previsível, vale o cliente ativo mais antigo e, só se não
+        houver ativo, o inativo mais antigo.
+        """
+
+        result = await self._session.execute(
+            sa.select(self.model)
+            .where(sa.func.lower(self.model.email) == email.strip().lower())
+            .order_by(
+                self.model.is_active.desc(),
+                self.model.created_at.asc(),
+                self.model.id.asc(),
+            )
+            .limit(1)
+        )
+        row = result.scalars().one_or_none()
+        return self._to_entity(row) if row else None
