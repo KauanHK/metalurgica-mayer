@@ -3,7 +3,7 @@
 from httpx import AsyncClient
 
 from app.modules.users.adapters.db.models import User as UserModel
-from tests.integration.modules.users.conftest import PASSWORD
+from tests.integration.conftest import PASSWORD
 
 
 async def _login_headers(client: AsyncClient, email: str) -> dict[str, str]:

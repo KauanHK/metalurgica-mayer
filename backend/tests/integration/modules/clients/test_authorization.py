@@ -2,7 +2,7 @@
 
 from httpx import AsyncClient
 
-from tests.integration.modules.users.conftest import PASSWORD
+from tests.integration.conftest import PASSWORD
 
 
 class TestClientsRequireAuthentication:

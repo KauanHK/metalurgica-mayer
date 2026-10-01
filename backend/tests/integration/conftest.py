@@ -25,13 +25,18 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
+from app.core.actors.roles import UserRole
+from app.core.security.passwords import hash_password
 from app.core.settings import settings
 from app.modules.clients.adapters.db.factories import (
     make_unit_of_work as make_clients_uow,
 )
 from app.modules.clients.adapters.db.unit_of_work import ClientsUnitOfWork
 from app.modules.users.adapters.db.factories import make_unit_of_work as make_users_uow
+from app.modules.users.adapters.db.models import User as UserModel
 from app.modules.users.adapters.db.unit_of_work import UsersUnitOfWork
+
+PASSWORD = "senha-forte-123"
 
 
 @pytest_asyncio.fixture
@@ -86,3 +91,41 @@ async def client() -> AsyncGenerator[AsyncClient]:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test/api") as ac:
         yield ac
+
+
+async def _create_user(
+    session_factory: Callable[[], AsyncSession], *, email: str, is_active: bool
+) -> UserModel:
+    """Insere o usuário direto pelo model, como o seed do admin inicial."""
+
+    session = session_factory()
+    user = UserModel(
+        name="Usuária de Teste",
+        email=email,
+        phone=None,
+        password_hash=hash_password(PASSWORD),
+        role=UserRole.OPERATOR,
+        is_active=is_active,
+    )
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture
+async def existing_user(session_factory: Callable[[], AsyncSession]) -> UserModel:
+    """Usuário ativo, com a senha em `PASSWORD`."""
+
+    return await _create_user(
+        session_factory, email="usuaria@metalurgicamayer.com.br", is_active=True
+    )
+
+
+@pytest_asyncio.fixture
+async def inactive_user(session_factory: Callable[[], AsyncSession]) -> UserModel:
+    """Usuário desativado, com a senha em `PASSWORD`."""
+
+    return await _create_user(
+        session_factory, email="inativa@metalurgicamayer.com.br", is_active=False
+    )
